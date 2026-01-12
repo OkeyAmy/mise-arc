@@ -1,0 +1,7 @@
+uagents
+flask
+flask-cors
+supabase
+python-dotenv
+requests
+openai
