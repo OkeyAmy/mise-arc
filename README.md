@@ -9,30 +9,35 @@ A smart AI-powered nutrition assistant that provides personalized meal suggestio
 ## 🌟 Key Features
 
 ### 🎯 **Personalized Meal Suggestions**
+
 - AI analyzes your dietary preferences, restrictions, and goals
 - Considers available ingredients and cooking time
 - Adapts to your cultural background and family size
 - Learns from your meal ratings and feedback
 
 ### 📦 **Smart Inventory Management**
+
 - Track pantry and refrigerator contents
 - Get meal suggestions based on available ingredients
 - Automatic expiration tracking and reminders
 - Reduce food waste through intelligent planning
 
 ### 🍜 **Leftover Optimization**
+
 - Track leftover meals and portions
 - Smart suggestions to use leftovers before they spoil
 - Portion management for families
 - Reduce food waste and save money
 
 ### 🛒 **Intelligent Shopping Lists**
+
 - Auto-generate shopping lists from meal suggestions
 - Track missing ingredients for recipes
 - Organize by store categories
 - Sync with meal planning
 
 ### ⚡ **Parallel Function Execution**
+
 - Lightning-fast responses through simultaneous data processing
 - 3-5x faster than traditional sequential AI assistants
 - Comprehensive context gathering in single requests
@@ -44,6 +49,7 @@ A smart AI-powered nutrition assistant that provides personalized meal suggestio
 **User:** *"What should I cook for dinner?"*
 
 **Mise processes in parallel:**
+
 1. `getCurrentTime` - Confirms it's dinner time
 2. `getLeftovers` - Checks for existing food to use first
 3. `getInventory` - Reviews available ingredients
@@ -56,6 +62,7 @@ A smart AI-powered nutrition assistant that provides personalized meal suggestio
 **User:** *"I'm vegetarian now, and I want to eat more protein"*
 
 **Mise responds:**
+
 1. Detects new dietary preference
 2. Asks: *"Would you like me to update your profile to vegetarian and add high-protein as a goal?"*
 3. Updates preferences after confirmation
@@ -76,49 +83,90 @@ A smart AI-powered nutrition assistant that provides personalized meal suggestio
 
 ## 🏗 Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React Client  │    │  Supabase Edge   │    │  Google Gemini  │
-│                 │    │    Functions     │    │      API        │
-│  • UI Components│◄──►│                  │◄──►│                 │
-│  • State Mgmt   │    │  • Gemini Proxy  │    │  • Function     │
-│  • Function     │    │  • CORS Headers  │    │    Calling      │
-│    Handlers     │    │  • API Key Mgmt  │    │  • System       │
-└─────────────────┘    └──────────────────┘    │    Instructions │
-         │                        │             └─────────────────┘
-         │                        │
-         ▼                        ▼
-┌─────────────────┐    ┌──────────────────┐
-│   Supabase DB   │    │   Function       │
-│                 │    │   Handlers       │
-│  • User Prefs   │    │                  │
-│  • Inventory    │◄──►│  • Parallel      │
-│  • Leftovers    │    │    Execution     │
-│  • Shopping     │    │  • Data          │
-│    Lists        │    │    Processing    │
-└─────────────────┘    └──────────────────┘
-```
+### **Agentic Workflow (Python Backend)**
+
+ The core intelligence is powered by a **Plan-Validate-Execute** agentic workflow:
+
+ ```mermaid
+ flowchart TD
+     A[User Message] --> B[Request Classifier]
+     
+     B -->|GREETING| C["Direct Response"]
+     B -->|QUERY| D["Fetch Data (No LLM)"]
+     B -->|QUESTION| E["Context + LLM"]
+     B -->|ACTION| F["Agent Planner"]
+     
+     subgraph AGENTIC_WORKFLOW [Agentic Workflow]
+         F --> G[Gather ALL Context]
+         G --> H[Create Action Plan]
+         H --> I[Agent Validator]
+         I --> J{Approved?}
+         J -->|No| K[Ask User]
+         J -->|Yes| L[Agent Executor]
+         K -->|User Says Yes| L
+         L --> M[Update Database]
+     end
+     
+     D & E & M --> N[Final Response]
+ ```
+
+### **Components**
+
+ | Component | Responsibility |
+ |-----------|----------------|
+ | **Request Classifier** | Determines if request is a simple query, greeting, or complex action |
+ | **Agent Planner** | Programmatically gathers context (inventory, prefs) and creates structured plans |
+ | **Agent Validator** | Checks plans against budget limits, safety guardrails, and user preferences |
+ | **Agent Executor** | Executes approved plans step-by-step with rollback capability |
+ | **Rate Limiter** | Manages API quota usage to prevent exhaustion |
+
+ ```
+ ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+ │   React Client  │    │  Python Backend  │    │  Google Gemini  │
+ │                 │    │  (Orchestrator)  │    │      API        │
+ │  • UI Components│◄──►│                  │◄──►│                 │
+ │  • State Mgmt   │    │  • Classifier    │    │  • Function     │
+ │                 │    │  • Planner       │    │    Calling      │
+ │                 │    │  • Validator     │    │  • Reasoning    │
+ │                 │    │  • Executor      │    │                 │
+ └─────────────────┘    └──────────────────┘    └─────────────────┘
+          │                        │
+          │                        │
+          ▼                        ▼
+ ┌─────────────────┐    ┌──────────────────┐
+ │   Supabase DB   │    │   Handlers       │
+ │                 │    │                  │
+ │  • User Prefs   │◄──►│  • Inventory     │
+ │  • Inventory    │    │  • Shopping List │
+ │  • Leftovers    │    │  • Preferences   │
+ └─────────────────┘    └──────────────────┘
+ ```
 
 ## 🔧 Installation & Setup
 
 ### Prerequisites
+
 - Node.js 18+ and npm
 - Supabase account
 - Google AI (Gemini) API key
 
 ### 1. Clone Repository
+
 ```bash
 git clone https://github.com/OkeyAmy/mise-ai.git
 cd mise-ai
 ```
 
 ### 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 3. Environment Setup
+
 Create `.env.local` file:
+
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -126,6 +174,7 @@ GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 4. Database Setup
+
 ```bash
 # Initialize Supabase
 npx supabase init
@@ -138,6 +187,7 @@ npx supabase functions deploy gemini-proxy
 ```
 
 ### 5. Start Development Server
+
 ```bash
 npm run dev
 ```
@@ -208,6 +258,7 @@ Based on user intent, Mise automatically determines which functions to call:
 ### **Contextual Meal Suggestions**
 
 Every suggestion considers:
+
 - ⏰ Current time (breakfast/lunch/dinner)
 - 🥘 Available ingredients and quantities
 - 🍽️ Existing leftovers to minimize waste
@@ -217,16 +268,34 @@ Every suggestion considers:
 
 ## 🧪 Testing
 
-```bash
-# Run tests
-npm test
+### **Python Agentic Workflow**
 
-# Run with coverage
-npm run test:coverage
+ ```bash
+ # Activate virtual environment
+ source .venv/bin/activate
+ 
+ # Run comprehensive test suite
+ python test_agentic_workflow.py
+ 
+ # Run specific integration tests
+ python test_agentic_workflow.py --integration
+ 
+ # Verify database handlers
+ python test_inventory_params.py
+ ```
 
-# E2E tests
-npm run test:e2e
-```
+### **Frontend Tests**
+
+ ```bash
+ # Run tests
+ npm test
+ 
+ # Run with coverage
+ npm run test:coverage
+ 
+ # E2E tests
+ npm run test:e2e
+ ```
 
 ## 📈 Performance
 
@@ -245,6 +314,7 @@ npm run test:e2e
 5. Open a Pull Request
 
 ### Development Guidelines
+
 - Follow TypeScript best practices
 - Use semantic commit messages
 - Write tests for new features
@@ -272,6 +342,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🌍 Multi-Cultural Support
 
 Mise supports diverse dietary preferences and cuisines:
+
 - **Cultural Heritage**: Nigerian, Indian, Chinese, Mediterranean, etc.
 - **Dietary Restrictions**: Vegetarian, Vegan, Halal, Kosher, Gluten-free
 - **Regional Ingredients**: Local availability considerations
@@ -288,7 +359,8 @@ Mise supports diverse dietary preferences and cuisines:
 
 Try Mise AI live at: [mise-ai.lovable.app](https://mise-ai.lovable.app)
 
-### Demo Features Available:
+### Demo Features Available
+
 - ✅ Chat with Mise about meal preferences
 - ✅ Add ingredients to your inventory
 - ✅ Get personalized meal suggestions
@@ -299,18 +371,20 @@ Try Mise AI live at: [mise-ai.lovable.app](https://mise-ai.lovable.app)
 
 - 🐛 **Issues**: [GitHub Issues](https://github.com/OkeyAmy/mise-ai/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/OkeyAmy/mise-ai/discussions)
-- 📧 **Email**: support@mise-ai.com
-- 🔗 **Live Demo**: [mise-ai.lovable.app](https://mise-ai.lovable.app)
+- 📧 **Email**: <support@mise-ai.com>
+- 🔗 **Live Demo**: [mise-ai.vercel.app](https://mise-ai.vercel.app)
 
 ## 🗺️ Roadmap
 
 ### 🎯 Next Release (v1.1)
+
 - [ ] Recipe step-by-step cooking instructions
 - [ ] Voice interaction support
 - [ ] Nutritional analysis dashboard
 - [ ] Meal photo recognition
 
 ### 🚀 Future Versions
+
 - [ ] Social meal sharing features
 - [ ] Grocery delivery API integration
 - [ ] Smart kitchen appliance connectivity
@@ -318,7 +392,7 @@ Try Mise AI live at: [mise-ai.lovable.app](https://mise-ai.lovable.app)
 
 ---
 
-### ⭐ Star this repository if you find it helpful!
+### ⭐ Star this repository if you find it helpful
 
 **Built with ❤️ for healthier, smarter eating**
 

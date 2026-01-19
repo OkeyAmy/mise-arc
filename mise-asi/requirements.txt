@@ -4,4 +4,5 @@ flask-cors
 supabase
 python-dotenv
 requests
-openai
+# openai
+google-generativeai

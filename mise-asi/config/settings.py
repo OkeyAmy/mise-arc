@@ -22,9 +22,12 @@ class Settings:
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
     
     # ASI Cloud / LLM Provider
-    ASICLOUD_API_KEY: str = os.getenv("ASICLOUD_API_KEY", "")
-    ASICLOUD_BASE_URL: str = os.getenv("ASICLOUD_BASE_URL", "https://inference.asicloud.cudos.org/v1")
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "openai/gpt-oss-20b")
+    # ASICLOUD_API_KEY: str = os.getenv("ASICLOUD_API_KEY", "")
+    # ASICLOUD_BASE_URL: str = os.getenv("ASICLOUD_BASE_URL", "https://inference.asicloud.cudos.org/v1")
+    
+    # Google Gemini
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini-2.0-flash-exp")
     
     # Agent
     AGENT_SEED: str = os.getenv("AGENT_SEED", "mise-asi-default-seed")
@@ -37,8 +40,10 @@ class Settings:
             missing.append("SUPABASE_URL")
         if not cls.SUPABASE_KEY:
             missing.append("SUPABASE_KEY")
-        if not cls.ASICLOUD_API_KEY:
-            missing.append("ASICLOUD_API_KEY")
+        if not cls.GEMINI_API_KEY:
+            missing.append("GEMINI_API_KEY")
+        # if not cls.ASICLOUD_API_KEY:
+        #     missing.append("ASICLOUD_API_KEY")
         return missing
 
 

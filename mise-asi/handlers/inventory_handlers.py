@@ -111,8 +111,8 @@ def handle_update_inventory(args: dict, ctx: HandlerContext) -> str:
         validated_items = []
         for item in items:
             if isinstance(item, dict):
-                # Accept multiple field name variations
-                item_name = item.get("item_name") or item.get("name") or item.get("item")
+                # Accept multiple field name variations (camelCase and snake_case)
+                item_name = item.get("item_name") or item.get("itemName") or item.get("name") or item.get("item")
                 if item_name:
                     # Build item with ALL provided fields
                     validated_item = {"item_name": str(item_name)}
@@ -176,7 +176,7 @@ def handle_create_inventory_items(args: dict, ctx: HandlerContext) -> str:
 def handle_update_inventory_item(args: dict, ctx: HandlerContext) -> str:
     """Update a single inventory item by name - accepts any field"""
     try:
-        item_name = args.get("item_name") or args.get("name") or args.get("item")
+        item_name = args.get("item_name") or args.get("itemName") or args.get("name") or args.get("item")
         updates = args.get("updates", {})
         
         # If no separate updates dict, treat remaining args as updates
@@ -223,7 +223,7 @@ def handle_update_inventory_item(args: dict, ctx: HandlerContext) -> str:
 def handle_delete_inventory_item(args: dict, ctx: HandlerContext) -> str:
     """Delete an inventory item by name"""
     try:
-        item_name = args.get("item_name") or args.get("name") or args.get("item")
+        item_name = args.get("item_name") or args.get("itemName") or args.get("name") or args.get("item")
         if not item_name:
             return "Item name is required."
         
