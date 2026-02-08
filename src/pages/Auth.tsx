@@ -58,11 +58,14 @@ export function AuthPage() {
 
     setLoading(true);
     
+    const redirectOrigin = import.meta.env.VITE_APP_URL || window.location.origin;
+    const emailRedirectTo = `${redirectOrigin.replace(/\/$/, '')}/`;
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo,
       },
     });
     
@@ -76,11 +79,14 @@ export function AuthPage() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    
+    // Use VITE_APP_URL in production so redirect goes to deployed frontend, not localhost
+    const redirectOrigin = import.meta.env.VITE_APP_URL || window.location.origin;
+    const redirectTo = `${redirectOrigin.replace(/\/$/, '')}/`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo,
       },
     });
     
@@ -98,8 +104,11 @@ export function AuthPage() {
     }
     
     setLoading(true);
+    const redirectOrigin = import.meta.env.VITE_APP_URL || window.location.origin;
+    const redirectTo = `${redirectOrigin.replace(/\/$/, '')}/reset-password`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo,
     });
     
     if (error) {

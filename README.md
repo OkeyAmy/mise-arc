@@ -171,9 +171,23 @@ Create `.env.local` file:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_api_key
+# Production only: base URL of your deployed frontend (fixes OAuth redirect to localhost)
+# VITE_APP_URL=https://your-app.onrender.com
 ```
 
-### 4. Database Setup
+### 4. Fix OAuth redirect after deployment (Google sign-in)
+
+If "Sign in with Google" redirects to `http://localhost:8080` after deploying:
+
+1. **Supabase Dashboard** → your project → **Authentication** → **URL Configuration**.
+2. Set **Site URL** to your deployed frontend URL (e.g. `https://your-app.onrender.com`).
+3. Under **Redirect URLs**, add your production URL(s), e.g.:
+   - `https://your-app.onrender.com`
+   - `https://your-app.onrender.com/**`
+   Keep `http://localhost:8080/**` for local development.
+4. In your deployment (e.g. Render), set env var **`VITE_APP_URL`** to that same frontend URL so auth redirects use it.
+
+### 5. Database Setup
 
 ```bash
 # Initialize Supabase
@@ -186,7 +200,7 @@ npx supabase db push
 npx supabase functions deploy gemini-proxy
 ```
 
-### 5. Start Development Server
+### 6. Start Development Server
 
 ```bash
 npm run dev
