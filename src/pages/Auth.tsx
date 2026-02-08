@@ -82,10 +82,12 @@ export function AuthPage() {
     // #region agent log
     const envViteAppUrl = import.meta.env.VITE_APP_URL;
     const winOrigin = window.location.origin;
-    console.log('[DEBUG] OAuth redirect debug:', { envViteAppUrl, winOrigin, allEnv: import.meta.env });
-    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:80',message:'handleGoogleLogin entry',data:{viteAppUrl:envViteAppUrl,windowOrigin:winOrigin},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    const isProduction = winOrigin.includes('vercel.app') || winOrigin.includes('onrender.com') || winOrigin.includes('netlify.app');
+    console.log('[DEBUG] OAuth redirect debug:', { envViteAppUrl, winOrigin, isProduction, allEnv: import.meta.env });
+    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:80',message:'handleGoogleLogin entry',data:{viteAppUrl:envViteAppUrl,windowOrigin:winOrigin,isProduction},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    // Use VITE_APP_URL in production so redirect goes to deployed frontend, not localhost
+    // Use VITE_APP_URL if set, otherwise use window.location.origin
+    // When on production (vercel.app, onrender.com, etc.), window.location.origin will be the production URL
     const redirectOrigin = envViteAppUrl || winOrigin;
     // #region agent log
     console.log('[DEBUG] redirectOrigin computed:', redirectOrigin);
