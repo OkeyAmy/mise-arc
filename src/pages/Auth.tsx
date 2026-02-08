@@ -79,9 +79,18 @@ export function AuthPage() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:80',message:'handleGoogleLogin entry',data:{viteAppUrl:import.meta.env.VITE_APP_URL,windowOrigin:window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     // Use VITE_APP_URL in production so redirect goes to deployed frontend, not localhost
     const redirectOrigin = import.meta.env.VITE_APP_URL || window.location.origin;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:84',message:'redirectOrigin computed',data:{redirectOrigin},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const redirectTo = `${redirectOrigin.replace(/\/$/, '')}/`;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:85',message:'redirectTo before Supabase call',data:{redirectTo},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -90,6 +99,9 @@ export function AuthPage() {
       },
     });
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/719fbe1a-e818-4c86-be42-452d6ae88007',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Auth.tsx:91',message:'Supabase signInWithOAuth result',data:{error:error?.message,hasError:!!error},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (error) {
       toast.error(error.message);
     }

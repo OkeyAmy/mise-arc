@@ -72,75 +72,99 @@ A smart AI-powered nutrition assistant that provides personalized meal suggestio
 
 | Category | Technology |
 |----------|------------|
-| **Frontend** | React 18, TypeScript, Tailwind CSS |
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
 | **UI Components** | shadcn/ui, Radix UI |
-| **Backend** | Supabase (PostgreSQL, Edge Functions) |
-| **AI/LLM** | Google Gemini 1.5 Pro with Function Calling |
+| **Backend (API)** | Python Flask (mise-asi) — orchestration, planning, execution |
+| **Backend (Data)** | Supabase (PostgreSQL, Auth) |
+| **AI/LLM** | Google Gemini (server-side: planning, Q&A, confirmations) |
 | **Authentication** | Supabase Auth |
 | **State Management** | React Hooks, Custom Hooks |
-| **Build Tool** | Vite |
-| **Deployment** | Lovable Platform |
+| **Deployment** | Frontend: Vercel/Render; Backend: Render (Flask) |
 
 ## 🏗 Architecture
 
-### **Agentic Workflow (Python Backend)**
+### **Request flow**
 
- The core intelligence is powered by a **Plan-Validate-Execute** agentic workflow:
+The frontend does **not** call Gemini directly. All chat goes through the **ASI (Python) backend**:
 
- ```mermaid
- flowchart TD
-     A[User Message] --> B[Request Classifier]
-     
-     B -->|GREETING| C["Direct Response"]
-     B -->|QUERY| D["Fetch Data (No LLM)"]
-     B -->|QUESTION| E["Context + LLM"]
-     B -->|ACTION| F["Agent Planner"]
-     
-     subgraph AGENTIC_WORKFLOW [Agentic Workflow]
-         F --> G[Gather ALL Context]
-         G --> H[Create Action Plan]
-         H --> I[Agent Validator]
-         I --> J{Approved?}
-         J -->|No| K[Ask User]
-         J -->|Yes| L[Agent Executor]
-         K -->|User Says Yes| L
-         L --> M[Update Database]
-     end
-     
-     D & E & M --> N[Final Response]
- ```
+1. User sends a message in the React app.
+2. `useChat` calls **`callGeminiProxy`** → **ASI `/chat`** (Flask) with `message`, `user_id`, and optional `history`.
+3. The **Orchestrator** classifies the request, then either returns a direct response, runs a query, runs an action (plan → validate → execute), or answers a question with context + LLM.
+
+### **Request types and behavior**
+
+| Request type | Source | Behavior |
+|--------------|--------|----------|
+| **GREETING** | `classifier.py` (regex) | Direct reply; no DB or LLM. |
+| **QUERY** | Classifier (e.g. "show my shopping list") | **Planner** gathers context once (`gather_context`); response is formatted data only — **no LLM**. |
+| **ACTION** | Classifier (e.g. "add milk to my list") | **Plan → Validate → Execute**: Planner gathers context, LLM produces a structured **action plan** (JSON steps); **Validator** checks approval/budget; **Executor** runs each step sequentially via **handlers**. |
+| **QUESTION** | Classifier (e.g. "what should I cook?") | Planner gathers context; **one LLM call** with that context and the user question; no tool execution. |
+
+```mermaid
+flowchart TD
+    A[User Message] --> B[Request Classifier]
+    B -->|GREETING| C["Direct Response"]
+    B -->|QUERY| D["Planner.gather_context → Format"]
+    B -->|QUESTION| E["Planner.gather_context + LLM"]
+    B -->|ACTION| F[Planner.gather_context]
+    F --> G[Planner.create_plan - LLM]
+    G --> H[Validator]
+    H --> I{Approved?}
+    I -->|No| J[Ask User]
+    I -->|Yes| K[Executor - run steps]
+    J -->|User says yes| K
+    K --> L[Handlers → Supabase]
+    D & E & L --> M[Final Response]
+```
 
 ### **Components**
 
- | Component | Responsibility |
- |-----------|----------------|
- | **Request Classifier** | Determines if request is a simple query, greeting, or complex action |
- | **Agent Planner** | Programmatically gathers context (inventory, prefs) and creates structured plans |
- | **Agent Validator** | Checks plans against budget limits, safety guardrails, and user preferences |
- | **Agent Executor** | Executes approved plans step-by-step with rollback capability |
- | **Rate Limiter** | Manages API quota usage to prevent exhaustion |
+| Component | Location | Responsibility |
+|-----------|----------|----------------|
+| **Request Classifier** | `orchestration/classifier.py` | Regex + rules: GREETING, QUERY (target: shopping_list / inventory / leftovers / preferences), ACTION, QUESTION. No LLM. |
+| **Agent Planner** | `orchestration/planner.py` | `gather_context(user_id)` loads preferences, inventory, leftovers, shopping list from Supabase; `create_plan(message, context, TOOLS)` calls Gemini to return a JSON action plan (goal + steps with `action`, `parameters`, `description`). |
+| **Agent Validator** | `orchestration/validator.py` | Validates plan (e.g. budget, safety); sets `requires_approval`; can add errors/warnings. |
+| **Agent Executor** | `orchestration/executor.py` | Runs plan steps **sequentially**; each step is dispatched to **handlers** (`handle_function_call`); supports rollback for certain actions. |
+| **Handlers** | `mise-asi/handlers/*.py` | Map tool names to Supabase/APIs: inventory, shopping_list, preferences, leftovers, meal, notes, amazon_search, utility. |
+| **Rate Limiter** | `orchestration/rate_limiter.py` | Throttles Gemini calls to avoid quota exhaustion. |
 
- ```
- ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
- │   React Client  │    │  Python Backend  │    │  Google Gemini  │
- │                 │    │  (Orchestrator)  │    │      API        │
- │  • UI Components│◄──►│                  │◄──►│                 │
- │  • State Mgmt   │    │  • Classifier    │    │  • Function     │
- │                 │    │  • Planner       │    │    Calling      │
- │                 │    │  • Validator     │    │  • Reasoning    │
- │                 │    │  • Executor      │    │                 │
- └─────────────────┘    └──────────────────┘    └─────────────────┘
-          │                        │
-          │                        │
-          ▼                        ▼
- ┌─────────────────┐    ┌──────────────────┐
- │   Supabase DB   │    │   Handlers       │
- │                 │    │                  │
- │  • User Prefs   │◄──►│  • Inventory     │
- │  • Inventory    │    │  • Shopping List │
- │  • Leftovers    │    │  • Preferences   │
- └─────────────────┘    └──────────────────┘
- ```
+```
+┌─────────────────┐         ┌──────────────────────────────────────┐         ┌─────────────────┐
+│   React (Vite)  │  POST   │  Python Flask (mise-asi)             │  API    │  Google Gemini  │
+│                 │  /chat  │  • Classifier                         │  calls  │                 │
+│  useChat →      │────────►│  • Orchestrator                       │────────►│  Planning       │
+│  callGeminiProxy│         │  • Planner (gather_context, create_  │         │  Q&A            │
+│  (asiProxy.ts)  │◄────────│    plan)                              │◄────────│  Confirmations  │
+└─────────────────┘         │  • Validator / Executor               │         └─────────────────┘
+         │                  │  • Handlers (function calls)          │
+         │                  └──────────────────┬───────────────────┘
+         │                                     │
+         │                                     ▼
+         │                  ┌──────────────────────────────────────┐
+         │                  │  Supabase                           │
+         └─────────────────►│  Auth, PostgreSQL (prefs, inventory, │
+          (Supabase client) │  shopping_list, leftovers, etc.)    │
+                            └──────────────────────────────────────┘
+```
+
+### **Function calling (implementation details)**
+
+All **function execution is server-side** in the Python backend. The frontend does not receive or run Gemini tool calls; it only sends the user message and displays the final text and thought steps.
+
+- **Tool definitions**  
+  Tools are declared in **`mise-asi/registry/schemas/`** (per domain) and aggregated in **`mise-asi/registry/tools.py`**. Each tool has `name`, `description`, and `input_schema` (JSON schema). The orchestrator converts these to **Gemini `FunctionDeclaration`** format (with schema sanitization for Gemini) and passes them only to the **Planner** when calling the LLM to **create an action plan**. The LLM returns a JSON plan with `goal` and `steps`; each step has `action` (tool name), `parameters`, `description`, and `reason`.
+
+- **Execution path**  
+  For **ACTION** requests, the **Executor** runs plan steps **one after another**. For each step it builds a `FunctionCall` dict (`name`, `args`) and calls **`handle_function_call(function_call, ctx)`** in **`mise-asi/handlers/__init__.py`**, which dispatches to the right handler by name. Handlers talk to Supabase (and optionally external APIs) and return a string result. There is **no** client-side function-call loop; the frontend only sees the final assistant message and optional `thought_steps` / `function_calls` metadata.
+
+- **Handler mapping**  
+  Handlers live in **`mise-asi/handlers/`** and mirror the tool names (camelCase in API, e.g. `getCurrentTime`, `addToShoppingList`). Domains: **utility** (`getCurrentTime`), **inventory** (e.g. `getInventory`, `createInventoryItems`, `updateInventoryItem`, `deleteInventoryItem`), **shopping_list** (e.g. `getShoppingList`, `addToShoppingList`, `createShoppingListItems`, `deleteShoppingListItems`), **preferences** (e.g. `getUserPreferences`, `updateUserPreferences`, `createUserPreferences`, `updateUserPreferencesPartial`), **leftovers** (e.g. `getLeftovers`, `createLeftoverItems`, `deleteLeftoverItem`), **meal** (`suggestMeal`, `updateMealPlan`), **notes** (`updateUserNotes`), **amazon_search** (e.g. `searchAmazonProduct`, `getAmazonSearchResults`, `clearAmazonSearchCache`). The same names are used in **`src/hooks/chat/functionHandlers.ts`** for reference, but the live path is backend-only.
+
+- **Context gathering**  
+  For both QUERY and ACTION/QUESTION, context is gathered **programmatically** in **`Planner.gather_context(user_id)`**: it fetches user preferences, inventory, leftovers, and shopping list from Supabase (no LLM). That guarantees full context before planning or answering; the LLM is used only for creating the plan (ACTION) or the answer text (QUESTION).
+
+- **API surface**  
+  Flask exposes **`POST /chat`** (body: `message`, `user_id`, optional `history`); response: `text`, `function_calls`, `thought_steps`, and optionally `plan` / `awaiting_approval`. Also **`GET /health`** and **`GET /tools`** (returns list of tool names). Frontend uses **`VITE_ASI_ENDPOINT`** (default `http://localhost:8001`) to reach the backend.
 
 ## 🔧 Installation & Setup
 
@@ -171,9 +195,15 @@ Create `.env.local` file:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_api_key
+# ASI backend (default: http://localhost:8001)
+# VITE_ASI_ENDPOINT=http://localhost:8001
+# Production: point to your deployed Flask backend (e.g. Render)
+# VITE_ASI_ENDPOINT=https://your-asi.onrender.com
 # Production only: base URL of your deployed frontend (fixes OAuth redirect to localhost)
 # VITE_APP_URL=https://your-app.onrender.com
 ```
+
+For the **Python backend** (`mise-asi/`), use a `.env` in that directory with `SUPABASE_URL`, `SUPABASE_KEY`, `GEMINI_API_KEY`, `MODEL_NAME`, etc. (see `mise-asi/.env.example`).
 
 ### 4. Fix OAuth redirect after deployment (Google sign-in)
 
@@ -200,74 +230,99 @@ npx supabase db push
 npx supabase functions deploy gemini-proxy
 ```
 
-### 6. Start Development Server
+### 6. Start development
+
+**Backend (ASI):** From `mise-asi/`, create a venv, install deps, set `.env`, then run (see `config` for `PORT`, default 8001):
 
 ```bash
-npm run dev
+cd mise-asi
+python -m venv .venv
+source .venv/bin/activate   # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+# Set .env (SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY, MODEL_NAME)
+python main.py
 ```
 
-Visit `http://localhost:5173` to see the application.
+**Frontend:** From repo root, set `VITE_ASI_ENDPOINT=http://localhost:8001` (or leave default) and run:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+Visit `http://localhost:5173` (or the port Vite prints). Chat requests go to the ASI backend at `VITE_ASI_ENDPOINT`.
 
 ## 📁 Project Structure
 
 ```
-src/
-├── components/          # UI Components
-│   ├── Chatbot.tsx     # Main chat interface
-│   ├── InventoryManager.tsx
-│   ├── ShoppingList.tsx
-│   └── ...
-├── hooks/              # Custom React Hooks
-│   ├── useChat.ts      # Main chat logic
-│   ├── chat/
-│   │   ├── functionHandlers.ts
-│   │   ├── geminiProxy.ts
-│   │   └── handlers/   # Individual function handlers
-│   └── ...
-├── lib/                # Core Logic
-│   ├── gemini/         # AI integration
-│   │   ├── api.ts
-│   │   └── tools.ts
-│   ├── functions/      # Function definitions
-│   ├── prompts/        # AI prompts
-│   └── schemas/        # Data schemas
-├── data/
-│   └── schema.ts       # TypeScript interfaces
+mise-asi/                    # Python ASI backend (Flask)
+├── adapters/
+│   └── flask_app.py        # Routes: /chat, /health, /tools
+├── config/                 # Settings, env
+├── orchestration/
+│   ├── orchestrator.py     # Classifier → GREETING/QUERY/ACTION/QUESTION
+│   ├── classifier.py       # Request type + target entity
+│   ├── planner.py          # gather_context, create_plan (Gemini)
+│   ├── validator.py        # Plan validation, approval
+│   ├── executor.py         # Run plan steps via handlers
+│   ├── action_plan.py      # PlanStep, ActionPlan, AgentContext
+│   └── rate_limiter.py
+├── handlers/                # One module per domain
+│   ├── __init__.py         # handle_function_call, FUNCTION_HANDLERS
+│   ├── inventory_handlers.py
+│   ├── shopping_list_handlers.py
+│   ├── preferences_handlers.py
+│   ├── leftovers_handlers.py
+│   ├── meal_handlers.py
+│   ├── notes_handlers.py
+│   ├── amazon_search_handlers.py
+│   └── utility_handlers.py
+├── registry/
+│   ├── tools.py            # TOOLS list (aggregate)
+│   └── schemas/            # Tool definitions (name, description, input_schema)
+│       ├── inventory_tools.py
+│       ├── shopping_list_tools.py
+│       ├── preferences_tools.py
+│       ├── leftovers_tools.py
+│       ├── meal_tools.py
+│       ├── amazon_search_tools.py
+│       └── ...
+└── utils/                  # Supabase client, logger
+
+src/                        # Frontend (React + Vite)
+├── components/             # UI (Chatbot, InventoryManager, ShoppingList, …)
+├── hooks/
+│   ├── useChat.ts          # Sends message via callGeminiProxy → ASI /chat
+│   └── chat/
+│       ├── asiProxy.ts     # callASIProxy, callGeminiProxy (history → ASI)
+│       ├── functionHandlers.ts  # Reference only; execution is backend
+│       └── geminiProxy.ts   # Legacy Supabase path (optional)
+├── lib/
+│   ├── gemini/             # api.ts, tools.ts (used if not using ASI)
+│   ├── prompts/            # systemPrompt (reference)
+│   └── functions/          # Tool definitions (mirror registry/schemas)
 └── integrations/
-    └── supabase/       # Database client
+    └── supabase/           # Auth + DB client
 ```
 
 ## 🔥 Key Features Deep Dive
 
-### **Parallel Function Execution**
+### **Context gathering (no LLM for reads)**
 
-Mise revolutionizes AI assistant performance through parallel function calling:
+For **QUERY** and for **ACTION/QUESTION**, the backend gathers context **programmatically** in one go. The Planner calls Supabase for preferences, inventory, leftovers, and shopping list so the LLM always has full context without relying on the model to "decide" which tools to call. This is fast and deterministic.
 
-```typescript
-// Traditional AI: Sequential calls (slow)
-await getUserPreferences();
-await getInventory();
-await getLeftovers();
-await getCurrentTime();
+### **Request-based routing**
 
-// Mise: Parallel execution (3-5x faster)
-const [preferences, inventory, leftovers, time] = await Promise.all([
-  getUserPreferences(),
-  getInventory(), 
-  getLeftovers(),
-  getCurrentTime()
-]);
-```
+| User intent | Classifier | What runs |
+|-------------|------------|-----------|
+| "Hi" / "Thanks" | GREETING | Direct reply; no DB or Gemini. |
+| "What's in my shopping list?" | QUERY (target: shopping_list) | `gather_context` → format list; no LLM. |
+| "Add milk and eggs to my list" | ACTION | `gather_context` → Gemini creates plan (e.g. `createShoppingListItems`) → Validator → Executor runs steps via handlers. |
+| "What should I cook tonight?" | QUESTION | `gather_context` → one Gemini call with context + question; no tool execution. |
 
-### **Smart Function Selection**
+### **Action plans and execution**
 
-Based on user intent, Mise automatically determines which functions to call:
-
-| User Query | Functions Called (Parallel) |
-|------------|---------------------------|
-| "What should I cook?" | `getCurrentTime` + `getLeftovers` + `getInventory` + `getUserPreferences` |
-| "What do you know about me?" | `getUserPreferences` + `getLeftovers` + `getInventory` + `getShoppingList` |
-| "Plan my shopping" | `getUserPreferences` + `getInventory` + `getShoppingList` + `getCurrentTime` |
+For ACTIONS, Gemini is used only to **create a plan** (JSON with `goal` and `steps`). Each step has an `action` (e.g. `addToShoppingList`, `createInventoryItems`) and `parameters`. The Executor runs steps **sequentially**, calling `handle_function_call` for each; handlers perform the real Supabase/API work. High-impact or sensitive plans can require user approval before execution.
 
 ### **Contextual Meal Suggestions**
 
