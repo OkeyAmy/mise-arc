@@ -247,3 +247,80 @@ def update_user_notes(user_id: str, notes: str) -> None:
         on_conflict="user_id"
     ).execute()
     logger.info(f"update_user_notes for {user_id}: updated")
+
+
+# ========================
+# Amazon Search Cache
+# ========================
+
+def get_amazon_search_cache(user_id: str, product_query: str, country: str = "US") -> list[dict] | None:
+    """
+    Get cached Amazon search results for a specific query.
+    Returns the search_results array or None if not found.
+    """
+    client = get_supabase_client()
+    try:
+        response = (
+            client.table("amazon_search_cache")
+            .select("search_results, updated_at")
+            .eq("user_id", user_id)
+            .eq("product_query", product_query.lower().strip())
+            .eq("country", country)
+            .maybe_single()
+            .execute()
+        )
+        if response.data and response.data.get("search_results"):
+            logger.info(f"get_amazon_search_cache for {user_id}/{product_query}: cache hit")
+            return response.data["search_results"]
+        logger.info(f"get_amazon_search_cache for {user_id}/{product_query}: cache miss")
+        return None
+    except Exception as e:
+        logger.warning(f"get_amazon_search_cache failed: {e}")
+        return None
+
+
+def save_amazon_search_cache(user_id: str, product_query: str, search_results: list[dict], country: str = "US") -> None:
+    """
+    Save or update Amazon search results in the cache.
+    Uses upsert with the unique constraint (user_id, product_query, country).
+    """
+    client = get_supabase_client()
+    try:
+        from datetime import datetime, timezone
+        result = (
+            client.table("amazon_search_cache")
+            .upsert(
+                {
+                    "user_id": user_id,
+                    "product_query": product_query.lower().strip(),
+                    "country": country,
+                    "search_results": search_results,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                on_conflict="user_id,product_query,country",
+            )
+            .execute()
+        )
+        logger.info(f"save_amazon_search_cache for {user_id}/{product_query}: saved {len(search_results)} products")
+    except Exception as e:
+        logger.error(f"save_amazon_search_cache failed: {e}")
+
+
+def clear_amazon_search_cache(user_id: str, product_query: str | None = None, country: str = "US") -> int:
+    """
+    Clear Amazon search cache. If product_query is provided, clear that specific entry.
+    Otherwise, clear all entries for the user.
+    Returns the number of rows deleted.
+    """
+    client = get_supabase_client()
+    try:
+        query = client.table("amazon_search_cache").delete().eq("user_id", user_id)
+        if product_query:
+            query = query.eq("product_query", product_query.lower().strip()).eq("country", country)
+        result = query.execute()
+        count = len(result.data) if result.data else 0
+        logger.info(f"clear_amazon_search_cache for {user_id}: cleared {count} entries")
+        return count
+    except Exception as e:
+        logger.error(f"clear_amazon_search_cache failed: {e}")
+        return 0

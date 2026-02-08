@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -62,12 +62,12 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         // Check if productName is "all" to get all cached products
         const isSearchAll = productName.toLowerCase() === "all" || productName.toLowerCase() === "all products";
         const cachedProducts = await getAmazonSearchCache(
-          isSearchAll ? undefined : productName, 
+          isSearchAll ? undefined : productName,
           isSearchAll
         );
         console.log(`Loaded ${cachedProducts.length} products:`, cachedProducts);
         setProducts(cachedProducts);
-        
+
         if (cachedProducts.length === 0) {
           console.log(`No cached products found for: ${productName}`);
         }
@@ -120,7 +120,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
   const renderStars = (rating: string | number) => {
     const numRating = typeof rating === 'string' ? parseFloat(rating) : rating;
     if (isNaN(numRating)) return null;
-    
+
     const stars = [];
     const fullStars = Math.floor(numRating);
     const hasHalfStar = numRating % 1 >= 0.5;
@@ -128,16 +128,16 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
     for (let i = 0; i < fullStars; i++) {
       stars.push(<Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />);
     }
-    
+
     if (hasHalfStar) {
       stars.push(<Star key="half" className="w-4 h-4 fill-yellow-400/50 text-yellow-400" />);
     }
-    
+
     const remainingStars = 5 - Math.ceil(numRating);
     for (let i = 0; i < remainingStars; i++) {
       stars.push(<Star key={`empty-${i}`} className="w-4 h-4 text-gray-300" />);
     }
-    
+
     return stars;
   };
 
@@ -153,7 +153,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
 
   const getProductBadges = (product: AmazonProduct) => {
     const badges = [];
-    
+
     if (product.is_best_seller) {
       badges.push(
         <Badge key="bestseller" variant="destructive" className="text-xs">
@@ -162,7 +162,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         </Badge>
       );
     }
-    
+
     if (product.is_amazon_choice) {
       badges.push(
         <Badge key="choice" variant="secondary" className="text-xs bg-orange-100 text-orange-800">
@@ -170,7 +170,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         </Badge>
       );
     }
-    
+
     if (product.is_prime) {
       badges.push(
         <Badge key="prime" variant="outline" className="text-xs text-blue-600 border-blue-600">
@@ -179,7 +179,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         </Badge>
       );
     }
-    
+
     if (product.climate_pledge_friendly) {
       badges.push(
         <Badge key="climate" variant="outline" className="text-xs text-green-600 border-green-600">
@@ -187,7 +187,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         </Badge>
       );
     }
-    
+
     if (product.product_badge) {
       badges.push(
         <Badge key="custom" variant="secondary" className="text-xs">
@@ -195,7 +195,7 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
         </Badge>
       );
     }
-    
+
     return badges;
   };
 
@@ -230,170 +230,136 @@ export const AmazonProductView = ({ isOpen, onClose, productName }: AmazonProduc
               )}
             </DialogTitle>
           </DialogHeader>
-        
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-muted-foreground">Loading Amazon products...</div>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-muted-foreground mb-4">No Amazon results found for this product.</div>
-              <div className="text-sm text-muted-foreground">Try asking the AI to search for this product first.</div>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-              {products.map((product, index) => (
-                <div key={product.asin || index} className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-green-100 to-green-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  {/* Free Delivery Banner */}
-                  {product.is_prime && (
-                    <div className="absolute top-4 left-4 z-10 bg-green-600 text-white text-xs px-3 py-1 rounded-full">
-                      Free Delivery until {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                    </div>
-                  )}
-                  
-                  {/* Product Image */}
-                  <div className="relative h-64 bg-gradient-to-b from-transparent to-black/20 overflow-hidden">
-                    <img 
-                      src={product.product_photo || "https://via.placeholder.com/300x300?text=No+Image"} 
-                      alt={product.product_title}
-                      className="w-full h-full object-cover object-center"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x300?text=No+Image";
-                      }}
-                    />
-                    
-                    {/* Badges overlay */}
-                    <div className="absolute top-4 right-4 space-y-1">
-                      {product.is_best_seller && (
-                        <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-medium">
-                          Best Seller
-                        </div>
-                      )}
-                      {product.is_amazon_choice && (
-                        <div className="bg-orange-500 text-white text-xs px-2 py-1 rounded-md font-medium">
-                          Amazon's Choice
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Card Content */}
-                  <div className="p-6 bg-gradient-to-br from-green-50 to-green-100">
-                    {/* Product Title */}
-                    <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 leading-tight">
-                      {product.product_title}
-                    </h3>
-                    
-                    {/* Product Tags */}
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {product.product_byline && (
-                        <span className="bg-white/70 text-gray-700 text-xs px-3 py-1 rounded-full border">
-                          {product.product_byline.split(' ').slice(0, 2).join(' ')}
-                        </span>
-                      )}
+
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-muted-foreground">Loading Amazon products...</div>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground mb-4">No Amazon results found for this product.</div>
+                <div className="text-sm text-muted-foreground">Try asking the AI to search for this product first.</div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {products.map((product, index) => (
+                  <div key={product.asin || index} className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors">
+                    {/* Product Image */}
+                    <div className="relative w-full sm:w-32 sm:h-32 flex-shrink-0 bg-muted rounded-lg overflow-hidden border">
+                      <img
+                        src={product.product_photo || "https://via.placeholder.com/300x300?text=No+Image"}
+                        alt={product.product_title}
+                        className="w-full h-full object-contain p-1 bg-white"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x300?text=No+Image";
+                        }}
+                      />
                       {product.is_prime && (
-                        <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full border border-blue-200">
+                        <div className="absolute top-1 left-1 bg-[#00A8E1] text-white text-[10px] px-1.5 py-0.5 rounded font-bold">
                           Prime
-                        </span>
-                      )}
-                      {product.climate_pledge_friendly && (
-                        <span className="bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full border border-green-200">
-                          Eco
-                        </span>
+                        </div>
                       )}
                     </div>
-                    
-                    {/* Rating */}
-                    {product.product_star_rating && (
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="flex items-center">
-                          {renderStars(product.product_star_rating)}
-                        </div>
-                        <span className="text-sm font-medium text-gray-700">
-                          {product.product_star_rating}
-                        </span>
-                        {product.product_num_ratings && (
-                          <span className="text-sm text-gray-500">
-                            ({product.product_num_ratings.toLocaleString()})
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Price and Order Section */}
-                    <div className="flex items-end justify-between">
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
                       <div>
-                        <div className="text-2xl font-bold text-gray-900">
-                          {formatPrice(product)}
+                        {/* Title and Badges */}
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-medium text-base line-clamp-2 leading-tight link-hover hover:underline cursor-pointer"
+                            onClick={() => product.product_url && window.open(product.product_url, '_blank')}>
+                            {product.product_title}
+                          </h3>
                         </div>
-                        {product.product_original_price && product.product_original_price !== product.product_price && (
-                          <div className="text-sm text-gray-500 line-through">
-                            {product.product_original_price}
-                          </div>
-                        )}
-                        {/* Unit Price Display */}
-                        {product.unit_price && (
-                          <div className="text-sm text-gray-600 mt-1">
-                            {product.unit_price}
-                            {product.unit_count && (
-                              <span className="ml-1">({product.unit_count} units)</span>
+
+                        {/* Rating and Reviews */}
+                        {product.product_star_rating && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className="flex text-yellow-500">
+                              {renderStars(product.product_star_rating)}
+                            </div>
+                            <span className="text-sm font-medium">{product.product_star_rating}</span>
+                            {product.product_num_ratings && (
+                              <span className="text-xs text-muted-foreground">({product.product_num_ratings.toLocaleString()})</span>
                             )}
                           </div>
                         )}
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {product.is_best_seller && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 h-5">Best Seller</Badge>
+                          )}
+                          {product.is_amazon_choice && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 h-5 bg-orange-100 text-orange-800 hover:bg-orange-200">Amazon's Choice</Badge>
+                          )}
+                          {product.climate_pledge_friendly && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 h-5 text-green-600 border-green-600">Eco Friendly</Badge>
+                          )}
+                        </div>
                       </div>
-                      
-                      <Button 
-                        className="bg-gray-900 hover:bg-gray-800 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-                        onClick={() => product.product_url && window.open(product.product_url, '_blank')}
-                        disabled={!product.product_url}
-                      >
-                        Order Now
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
+
+                      {/* Price and Action */}
+                      <div className="flex items-end justify-between mt-2 pt-2 border-t border-dashed">
+                        <div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xl font-bold">{formatPrice(product)}</span>
+                            {product.product_original_price && product.product_original_price !== product.product_price && (
+                              <span className="text-xs text-muted-foreground line-through">{product.product_original_price}</span>
+                            )}
+                          </div>
+                          {product.unit_price && (
+                            <div className="text-xs text-muted-foreground">
+                              {product.unit_price} {product.unit_count ? `(${product.unit_count} units)` : ''}
+                            </div>
+                          )}
+                          {product.delivery && (
+                            <div className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                              <Truck className="w-3 h-3" />
+                              {product.delivery}
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          size="sm"
+                          className="shrink-0 gap-1.5 rounded-full px-4"
+                          onClick={() => product.product_url && window.open(product.product_url, '_blank')}
+                          disabled={!product.product_url}
+                        >
+                          View on Amazon
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    
-                    {/* Availability Info */}
-                    {product.product_availability && (
-                      <div className="mt-3 text-xs text-gray-600">
-                        {product.product_availability}
-                      </div>
-                    )}
-                    
-                    {/* Delivery Info */}
-                    {product.delivery && (
-                      <div className="mt-2 text-xs text-gray-600 line-clamp-1">
-                        {product.delivery}
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-    
-    {/* Delete Confirmation Dialog */}
-    <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Clear Amazon Cache</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to clear the Amazon search cache for "{productName}"? This will remove all cached product data and you'll need to search again to see results.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={handleConfirmDelete}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
-            Clear Cache
-          </AlertDialogAction>
-        </AlertDialogFooter>
-              </AlertDialogContent>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Amazon Cache</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear the Amazon search cache for "{productName}"? This will remove all cached product data and you'll need to search again to see results.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Clear Cache
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </>
   );

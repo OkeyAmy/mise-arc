@@ -191,6 +191,23 @@ export const useChat = (props: UseChatProps) => {
     }
   };
 
+  // Add a message programmatically (used for purchase confirmations)
+  const addMessage = (message: Omit<Message, 'id'> & { id?: number }) => {
+    const newMessage: Message = {
+      ...message,
+      id: message.id || Date.now() + Math.floor(Math.random() * 1000),
+    };
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage.id;
+  };
+
+  // Update an existing message by ID (used for setting purchase intent)
+  const updateMessage = (messageId: number, updates: Partial<Message>) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, ...updates } : msg
+    ));
+  };
+
   return {
     messages,
     inputValue,
@@ -198,6 +215,8 @@ export const useChat = (props: UseChatProps) => {
     isThinking,
     handleSendMessage,
     resetConversation,
+    addMessage, // Export addMessage for purchase confirmations
+    updateMessage, // Export updateMessage for setting purchase intent
   };
 };
 

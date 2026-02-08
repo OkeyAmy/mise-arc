@@ -67,26 +67,22 @@ def _sanitize_schema_for_gemini(schema: dict) -> dict:
 
 
 # System prompt for LLM responses (only used for questions/recommendations)
-RESPONSE_SYSTEM_PROMPT = """You are Mise, a friendly AI kitchen assistant. 
+RESPONSE_SYSTEM_PROMPT = """You're Mise, a helpful kitchen assistant who loves making cooking easier and more enjoyable.
 
-## YOUR ROLE
-Help users with meal planning and kitchen management. Be warm, conversational, and helpful.
+Think of yourself as a friendly cooking partner who's here to help with meal planning, kitchen organization, and making the most of what people have on hand. You're warm, natural, and encouraging - never robotic or overly formal.
 
-## CONTEXT YOU HAVE
-The user's current data (preferences, inventory, leftovers, shopping list) is provided. Use this to give personalized advice.
+When helping someone:
+- Sound like you're chatting with a friend about food and cooking
+- Keep it conversational and brief (2-3 paragraphs max)
+- Focus on practical suggestions they can actually use
+- Work with what they already have in their kitchen first
+- Help them reduce waste and save money when possible
+- Speak naturally, like a real person would
 
-## YOUR RESPONSES
-- Be friendly and encouraging
-- Keep responses concise (2-3 paragraphs max)
-- Give specific, actionable suggestions
-- Reference what the user actually has available
-- Prioritize using leftovers and existing ingredients
-- No technical jargon or code
+If they mention wanting to find or buy something from Amazon or their shopping list, **DO NOT** use any search tools. Instead, simply say you've opened their shopping list panel for them to review. The app will handle the search automatically.
 
-## EXAMPLE GOOD RESPONSE
-"Based on what you have, I'd suggest making a quick stir-fry tonight! You've got chicken, bell peppers, and some leftover rice from yesterday - that's perfect for a 15-minute dinner. Plus, using up that rice means less food waste. 🍳
-
-Want me to add any missing ingredients to your shopping list?"
+Example of how you might respond:
+"Looking at what you've got, a stir-fry would be perfect tonight! You have chicken, bell peppers, and that leftover rice from yesterday - it all comes together in about 15 minutes. Plus you'll use up that rice before it goes bad. Want me to add anything else you might need to your shopping list?"
 """
 
 
@@ -263,15 +259,15 @@ class Orchestrator:
         """
         Handle action requests through PLAN → VALIDATE → EXECUTE workflow.
         """
-        ctx.log_step("🔍 Understanding your request...")
+        ctx.log_step("Understanding your request...")
         
         # PLANNING: Gather context and create plan
-        ctx.log_step("📊 Gathering your information...")
+        ctx.log_step("Gathering your information...")
         context = self.planner.gather_context(ctx.user_id)
         
         # Call LLM to create plan (rate limited)
         self.rate_limiter.wait_if_needed()
-        ctx.log_step("🎯 Creating a plan...")
+        ctx.log_step("Creating a plan...")
         plan = self.planner.create_plan(message, context, TOOLS)
         
         if plan.status == PlanStatus.FAILED or not plan.steps:
@@ -312,21 +308,12 @@ class Orchestrator:
             }
         
         # EXECUTION: Execute the approved plan
-        ctx.log_step("⚡ Making the changes...")
+        ctx.log_step("Making the changes...")
         plan.status = PlanStatus.APPROVED  # Mark as approved before execution
         plan = self.executor.execute_plan(plan, ctx)
         
-        # Generate friendly summary
-        if plan.status == PlanStatus.COMPLETED:
-            completed_steps = plan.get_completed_steps()
-            if completed_steps:
-                descriptions = [step.description for step in completed_steps]
-                response = "Done! ✅\n\n" + "\n".join(f"• {d}" for d in descriptions)
-                response += "\n\nAnything else?"
-            else:
-                response = "I've completed the changes. ✅"
-        else:
-            response = "I tried to make those changes but ran into some issues. Please try again."
+        # Generate natural confirmation
+        response = self._generate_completion_response(plan)
         
         return {
             "text": response,
@@ -380,15 +367,18 @@ Provide a helpful, personalized response based on what the user has available.""
             # Extract response text
             text_parts = []
             for candidate in response.candidates:
-                for part in candidate.content.parts:
-                    if part.text:
-                        text_parts.append(part.text)
+                # Check if content exists before iterating
+                if candidate.content and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if part.text:
+                            text_parts.append(part.text)
             
             final_response = "".join(text_parts) if text_parts else "I'm not sure how to answer that. Could you try asking differently?"
             
         except Exception as e:
             logger.exception("LLM response error")
             final_response = "I had trouble thinking about that. Could you try asking again?"
+
         
         return {
             "text": final_response,
@@ -415,16 +405,11 @@ Provide a helpful, personalized response based on what the user has available.""
             # User approved
             del self.pending_plans[ctx.user_id]
             
-            ctx.log_step("✅ Approved! Making changes...")
+            ctx.log_step("Approved! Making changes...")
             plan.status = PlanStatus.APPROVED  # Mark as approved before execution
             plan = self.executor.execute_plan(plan, ctx)
             
-            if plan.status == PlanStatus.COMPLETED:
-                completed = plan.get_completed_steps()
-                descriptions = [step.description for step in completed]
-                response = "Done! ✅\n\n" + "\n".join(f"• {d}" for d in descriptions)
-            else:
-                response = "I tried but ran into some issues."
+            response = self._generate_completion_response(plan)
             
             return {
                 "text": response,
@@ -453,6 +438,133 @@ Provide a helpful, personalized response based on what the user has available.""
                 "plan": plan.to_dict(),
                 "awaiting_approval": True
             }
+    
+    # ========================
+    # Response Generation
+    # ========================
+    
+    def _generate_completion_response(self, plan: ActionPlan) -> str:
+        """
+        Generate a natural, conversational confirmation after a plan completes.
+        Converts step descriptions into past-tense confirmations instead of
+        repeating them verbatim as bullet points.
+        """
+        completed = plan.get_completed_steps()
+        failed = plan.get_failed_steps()
+        
+        if not completed and not failed:
+            return "All done!"
+        
+        # Handle failures
+        if failed and not completed:
+            fail_descriptions = [s.description for s in failed]
+            return (
+                "I ran into some issues:\n\n"
+                + "\n".join(f"- {d}" for d in fail_descriptions)
+                + "\n\nPlease try again or rephrase your request."
+            )
+        
+        descriptions = [step.description for step in completed]
+        
+        # Single step: convert to a clean past-tense confirmation
+        if len(descriptions) == 1:
+            confirmation = self._to_past_tense(descriptions[0])
+            # Add failure note if partial
+            if failed:
+                fail_note = f"\n\nHowever, I couldn't: {failed[0].description.lower()}"
+                return f"{confirmation}{fail_note}"
+            return confirmation
+        
+        # Multiple steps: use LLM for a brief, natural summary
+        try:
+            self.rate_limiter.wait_if_needed()
+            
+            steps_text = "\n".join(f"- {d}" for d in descriptions)
+            fail_text = ""
+            if failed:
+                fail_text = "\n\nFailed steps:\n" + "\n".join(f"- {s.description}" for s in failed)
+            
+            prompt = f"""Summarize what was done in 1-2 short sentences. 
+Be conversational and natural. Do not use bullet points or emojis.
+Speak in first person past tense (e.g. "I've added...", "I updated...").
+Do not ask follow-up questions.
+
+Completed actions:
+{steps_text}{fail_text}"""
+            
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
+                config=types.GenerateContentConfig(
+                    system_instruction="You're Mise, a friendly kitchen assistant. Create a quick, natural confirmation of what was completed. Keep it to 1-2 short sentences, sound like a real person, and skip the emojis and bullet points.",
+                    temperature=0.3
+                )
+            )
+            
+            text_parts = []
+            for candidate in response.candidates:
+                # Check if content exists before iterating
+                if candidate.content and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if part.text:
+                            text_parts.append(part.text)
+            
+            summary = "".join(text_parts).strip()
+            if summary:
+                return summary
+        except Exception as e:
+            logger.warning(f"LLM summary generation failed, using fallback: {e}")
+        
+        # Fallback: simple past-tense list
+        confirmations = [self._to_past_tense(d) for d in descriptions]
+        result = " ".join(confirmations)
+        if failed:
+            result += f"\n\nI couldn't complete: {', '.join(s.description.lower() for s in failed)}."
+        return result
+    
+    @staticmethod
+    def _to_past_tense(description: str) -> str:
+        """
+        Convert an imperative step description to a past-tense confirmation.
+        e.g. "Add an orange to your shopping list" -> "I've added an orange to your shopping list."
+        """
+        desc = description.strip()
+        if not desc:
+            return "Done."
+        
+        # Common action verb mappings (imperative -> past participle)
+        verb_map = {
+            "add": "added",
+            "remove": "removed",
+            "delete": "deleted",
+            "update": "updated",
+            "set": "set",
+            "change": "changed",
+            "create": "created",
+            "clear": "cleared",
+            "replace": "replaced",
+            "adjust": "adjusted",
+            "search": "searched",
+            "find": "found",
+        }
+        
+        # Try to match the first word as a verb
+        words = desc.split(maxsplit=1)
+        first_word = words[0].lower()
+        
+        if first_word in verb_map:
+            past = verb_map[first_word]
+            rest = words[1] if len(words) > 1 else ""
+            # Don't end with period if rest already has one
+            sentence = f"I've {past} {rest}".rstrip(".")
+            return f"{sentence}."
+        
+        # If it already sounds like a confirmation, return as-is
+        if desc.lower().startswith(("i've ", "i have ", "done", "updated", "added", "removed")):
+            return desc if desc.endswith(".") else f"{desc}."
+        
+        # Fallback: prefix with "Done:"
+        return f"Done: {desc}." if not desc.endswith(".") else f"Done: {desc}"
     
     # ========================
     # Formatting Helpers

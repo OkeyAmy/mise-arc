@@ -84,4 +84,8 @@ export interface Message {
     functionName: string;
     result: any;
   }>;
+  // Purchase flow fields
+  purchaseIntent?: boolean; // If true, show purchase panel below this message
+  purchaseItems?: string[]; // Specific items to purchase (item names), or empty for all items
 }
+

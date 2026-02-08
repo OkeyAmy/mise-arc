@@ -42,6 +42,7 @@ from .notes_tools import update_user_notes_tool
 from .amazon_search_tools import (
     search_amazon_product_tool,
     search_multiple_amazon_products_tool,
+    search_shopping_list_on_amazon_tool,
     get_amazon_search_results_tool,
     clear_amazon_search_cache_tool,
 )
@@ -88,6 +89,7 @@ __all__ = [
     # Amazon
     "search_amazon_product_tool",
     "search_multiple_amazon_products_tool",
+    "search_shopping_list_on_amazon_tool",
     "get_amazon_search_results_tool",
     "clear_amazon_search_cache_tool",
 ]

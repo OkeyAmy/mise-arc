@@ -1,12 +1,9 @@
-
 import * as React from "react";
 import { ShoppingListItem } from "@/data/schema";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Download, Share2, Edit, Check, X, Eye, Copy, Loader2, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Download, Share2, Loader2, Plus, Copy } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { ShoppingCartItem } from "./ShoppingCartItem";
+import { ShoppingCartTotal } from "./ShoppingCartTotal";
 import { AmazonProductView } from "./AmazonProductView";
+import { useAmazonProducts } from "@/hooks/useAmazonProducts";
 import { useSharedShoppingList } from "@/hooks/useSharedShoppingList";
 import { Session } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
@@ -39,14 +39,13 @@ interface ShoppingListProps {
 }
 
 export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, session }: ShoppingListProps) => {
-  const [checkedItems, setCheckedItems] = React.useState<Set<string>>(new Set());
   const [itemToRemove, setItemToRemove] = React.useState<ShoppingListItem | null>(null);
   const [editingItem, setEditingItem] = React.useState<string | null>(null);
   const [editValues, setEditValues] = React.useState<{ quantity: number; unit: string }>({ quantity: 0, unit: "" });
   const [viewingProduct, setViewingProduct] = React.useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [shareUrl, setShareUrl] = React.useState<string>("");
-  
+
   // Add item form state
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [newItem, setNewItem] = React.useState<{ item: string; quantity: number; unit: string }>({
@@ -54,27 +53,26 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
     quantity: 1,
     unit: "piece"
   });
-  
+
   const { createShareableLink, isCreating } = useSharedShoppingList(session);
   const { toast } = useToast();
 
-  const handleCheckedChange = (checked: boolean, item: ShoppingListItem) => {
-    if (checked) {
-      setItemToRemove(item);
-    }
+  // Fetch Amazon products for all items
+  const { products, isLoading: isProductsLoading } = useAmazonProducts(items);
+
+  const handleRemoveClick = (item: ShoppingListItem) => {
+    setItemToRemove(item);
   };
 
   const handleRemoveConfirm = () => {
     if (itemToRemove) {
-      // Add to checked items for instant UI feedback
-      setCheckedItems(prev => new Set(prev).add(itemToRemove.item));
       onRemove(itemToRemove.item);
-      setItemToRemove(null); // Close dialog
+      setItemToRemove(null);
     }
   };
 
   const handleRemoveCancel = () => {
-    setItemToRemove(null); // Close dialog
+    setItemToRemove(null);
   };
 
   const handleEditStart = (item: ShoppingListItem) => {
@@ -82,9 +80,9 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
     setEditValues({ quantity: item.quantity, unit: item.unit });
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = (quantity: number, unit: string) => {
     if (editingItem && onUpdate) {
-      onUpdate(editingItem, editValues.quantity, editValues.unit);
+      onUpdate(editingItem, quantity, unit);
     }
     setEditingItem(null);
   };
@@ -142,11 +140,9 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
       return;
     }
 
-    // Always create shareable link for authenticated users
     if (session?.user) {
       await createAndShowShareLink();
     } else if (navigator.share) {
-      // Only use native sharing for non-authenticated users
       try {
         const listContent = formatShoppingList();
         await navigator.share({
@@ -155,7 +151,6 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
         });
       } catch (error) {
         console.error('Error sharing:', error);
-        // Show error toast
         toast({
           title: "Error",
           description: "Failed to share. Please try again.",
@@ -163,7 +158,6 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
         });
       }
     } else {
-      // Fallback for non-authenticated users without native share
       toast({
         title: "Sign in required",
         description: "Please sign in to create shareable links.",
@@ -212,9 +206,9 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex-1">
-              <CardTitle className="text-lg sm:text-xl">Your Smart Shopping List</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Your Smart Shopping Cart</CardTitle>
               <CardDescription className="text-sm mt-1">
-                Only items you need for your meal plan are listed here. Click edit to adjust quantities or view to see Amazon options.
+                Items with Amazon prices shown. Click View to see more options.
               </CardDescription>
             </div>
             <Button onClick={() => setShowAddForm(!showAddForm)} size="sm" variant="outline" className="w-full sm:w-auto">
@@ -224,6 +218,7 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* Add Item Form */}
           {showAddForm && (
             <div className="mb-4 p-3 sm:p-4 border rounded-lg bg-muted/50">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
@@ -260,109 +255,56 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
               </div>
             </div>
           )}
-          
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-            {(isLoading ? <div className="text-center py-4">Loading...</div> : null)}
+
+          {/* Cart Items List */}
+          <div className="space-y-1 max-h-96 overflow-y-auto">
+            {isLoading && <div className="text-center py-4 text-muted-foreground">Loading...</div>}
+
             {items.map((item) => (
-              <div
+              <ShoppingCartItem
                 key={`${item.item}-${item.unit}`}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-md hover:bg-muted group gap-3 sm:gap-4"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Checkbox
-                    id={`${item.item}-${item.unit}`}
-                    checked={checkedItems.has(item.item) || itemToRemove?.item === item.item}
-                    onCheckedChange={(checked) =>
-                      handleCheckedChange(!!checked, item)
-                    }
-                    className="flex-shrink-0"
-                  />
-                  <label
-                    htmlFor={`${item.item}-${item.unit}`}
-                    className={cn(
-                      "text-sm font-medium leading-none transition-colors peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 min-w-0 truncate",
-                      (checkedItems.has(item.item) || itemToRemove?.item === item.item) && "line-through text-muted-foreground"
-                    )}
-                  >
-                    {item.item}
-                  </label>
-                </div>
-                
-                {/* Quantity/Unit Display or Edit Mode */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {editingItem === item.item ? (
-                    // Edit mode
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        type="number"
-                        value={editValues.quantity}
-                        onChange={(e) => setEditValues(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
-                        className="w-16 h-8 text-sm flex-shrink-0"
-                        min="0"
-                        step="0.1"
-                      />
-                      <Input
-                        value={editValues.unit}
-                        onChange={(e) => setEditValues(prev => ({ ...prev, unit: e.target.value }))}
-                        className="w-20 h-8 text-sm flex-shrink-0"
-                        placeholder="unit"
-                      />
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={handleEditSave} className="h-8 w-8 p-0 flex-shrink-0">
-                          <Check className="h-4 w-4 text-green-600" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={handleEditCancel} className="h-8 w-8 p-0 flex-shrink-0">
-                          <X className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Display mode
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="text-sm text-muted-foreground whitespace-nowrap">
-                        {item.quantity} {item.unit}
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => handleViewProduct(item.item)}
-                          className="h-8 w-8 p-0"
-                          title="View on Amazon"
-                        >
-                          <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
-                        </Button>
-                        {onUpdate && (
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleEditStart(item)}
-                            className="h-8 w-8 p-0"
-                            title="Edit quantity"
-                          >
-                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                item={item}
+                product={products.get(item.item.toLowerCase())}
+                isProductLoading={isProductsLoading}
+                isEditing={editingItem === item.item}
+                editValues={editValues}
+                onEditStart={() => handleEditStart(item)}
+                onEditSave={handleEditSave}
+                onEditCancel={handleEditCancel}
+                onEditValuesChange={setEditValues}
+                onViewProduct={() => handleViewProduct(item.item)}
+                onRemove={() => handleRemoveClick(item)}
+                canEdit={!!onUpdate}
+              />
             ))}
+
             {items.length === 0 && !isLoading && (
               <div className="text-center text-muted-foreground py-8 sm:py-12">
-                No more items! All done 🎉
+                No items in your cart 🛒
               </div>
             )}
           </div>
+
+          {/* Estimated Total */}
+          {items.length > 0 && (
+            <div className="mt-4">
+              <ShoppingCartTotal
+                items={items}
+                products={products}
+                isLoading={isProductsLoading}
+              />
+            </div>
+          )}
+
+          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2 mt-6">
             <Button className="w-full" onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" /> Download
             </Button>
             {canShare && (
-              <Button 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                variant="outline"
+                className="w-full"
                 onClick={handleShare}
                 disabled={isCreating}
               >
@@ -377,11 +319,12 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
           </div>
         </CardContent>
       </Card>
-      
+
+      {/* Remove Confirmation Dialog */}
       <AlertDialog open={!!itemToRemove} onOpenChange={(open) => !open && handleRemoveCancel()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Remove item?</AlertDialogTitle>
             <AlertDialogDescription>
               This will remove "{itemToRemove?.item}" from your shopping list.
             </AlertDialogDescription>
@@ -393,6 +336,7 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -403,9 +347,9 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Input 
-                value={shareUrl} 
-                readOnly 
+              <Input
+                value={shareUrl}
+                readOnly
                 className="flex-1"
               />
               <Button onClick={copyShareUrl} size="sm">
@@ -413,13 +357,14 @@ export const ShoppingList = ({ items, onRemove, onUpdate, onAdd, isLoading, sess
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              When someone opens this link, they'll be able to add these items to their own shopping list and get AI suggestions for what to do with them.
+              When someone opens this link, they'll be able to add these items to their own shopping list.
             </p>
           </div>
         </DialogContent>
       </Dialog>
 
-      <AmazonProductView 
+      {/* Amazon Product View Modal */}
+      <AmazonProductView
         isOpen={!!viewingProduct}
         onClose={() => setViewingProduct(null)}
         productName={viewingProduct || ""}

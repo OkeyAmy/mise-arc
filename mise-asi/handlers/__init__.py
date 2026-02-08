@@ -62,6 +62,7 @@ FUNCTION_HANDLERS = {
     # Amazon Search
     "searchAmazonProduct": handle_amazon_search_functions,
     "searchMultipleAmazonProducts": handle_amazon_search_functions,
+    "searchShoppingListOnAmazon": handle_amazon_search_functions,
     "getAmazonSearchResults": handle_amazon_search_functions,
     "clearAmazonSearchCache": handle_amazon_search_functions,
 }

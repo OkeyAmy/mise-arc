@@ -43,6 +43,7 @@ from .schemas import (
     # Amazon
     search_amazon_product_tool,
     search_multiple_amazon_products_tool,
+    search_shopping_list_on_amazon_tool,
     get_amazon_search_results_tool,
     clear_amazon_search_cache_tool,
 )
@@ -95,6 +96,7 @@ TOOLS = [
     # Amazon search tools
     search_amazon_product_tool,
     search_multiple_amazon_products_tool,
+    search_shopping_list_on_amazon_tool,
     get_amazon_search_results_tool,
     clear_amazon_search_cache_tool,
 ]

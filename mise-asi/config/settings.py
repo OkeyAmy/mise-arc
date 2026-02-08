@@ -32,6 +32,9 @@ class Settings:
     # Agent
     AGENT_SEED: str = os.getenv("AGENT_SEED", "mise-asi-default-seed")
     
+    # RapidAPI (Amazon Search)
+    RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY", "")
+    
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required settings, returns list of missing vars"""

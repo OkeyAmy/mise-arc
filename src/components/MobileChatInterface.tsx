@@ -92,9 +92,9 @@ const MobileChatInput = ({ inputValue, setInputValue, handleSendMessage, isThink
         <div className="flex items-end bg-muted/60 backdrop-blur-sm rounded-3xl border border-border/20 p-2 gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                type="button" 
-                size="icon" 
+              <Button
+                type="button"
+                size="icon"
                 variant="ghost"
                 className="flex-shrink-0 h-10 w-10 rounded-full hover:bg-muted/80 transition-colors"
                 disabled={isThinking}
@@ -102,18 +102,18 @@ const MobileChatInput = ({ inputValue, setInputValue, handleSendMessage, isThink
                 <Plus className="h-5 w-5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="start" 
+            <DropdownMenuContent
+              align="start"
               className="w-40 bg-background/95 backdrop-blur-sm border border-border/20 rounded-xl shadow-lg"
             >
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={onFeedback}
                 className="flex items-center gap-2 hover:bg-muted/50 rounded-lg m-1 cursor-pointer transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Feedback</span>
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={onReset}
                 className="flex items-center gap-2 hover:bg-muted/50 rounded-lg m-1 cursor-pointer transition-colors"
               >
@@ -122,21 +122,21 @@ const MobileChatInput = ({ inputValue, setInputValue, handleSendMessage, isThink
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <Textarea
             ref={textareaRef}
-            value={inputValue} 
-            onChange={(e) => setInputValue(e.target.value)} 
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             placeholder="Message"
             disabled={isThinking}
             onKeyDown={handleKeyDown}
             className="flex-1 resize-none bg-transparent border-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 max-h-32 min-h-[20px] leading-relaxed px-2 py-3 text-sm placeholder:text-muted-foreground/60"
             rows={1}
           />
-          
-          <Button 
-            type="submit" 
-            size="icon" 
+
+          <Button
+            type="submit"
+            size="icon"
             disabled={isThinking || !inputValue.trim()}
             className="flex-shrink-0 h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 disabled:opacity-50"
           >
@@ -191,7 +191,7 @@ export const MobileChatInterface = ({
     deleteItem: deleteInventoryItemFromHook,
     upsertItem,
   } = useInventory(session);
-  
+
   const { preferences, updatePreferences } = usePreferences(session);
 
   const onCreateInventoryItems = async (items: Omit<InventoryItem, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]) => {
@@ -205,11 +205,11 @@ export const MobileChatInterface = ({
       await upsertItem(item);
     }
   };
-  
+
   const onUpdateInventoryItem = async (itemId: string, updates: Partial<InventoryItem>) => {
     await updateInventoryItemFromHook(itemId, updates);
   };
-  
+
   const onDeleteInventoryItem = async (itemId: string) => {
     await deleteInventoryItemFromHook(itemId);
   };
@@ -240,7 +240,7 @@ export const MobileChatInterface = ({
     handleSendMessage,
     resetConversation,
   } = useChat({
-    setPlan: () => {},
+    setPlan: () => { },
     setIsShoppingListOpen,
     setIsLeftoversOpen,
     setThoughtSteps,
@@ -269,7 +269,7 @@ export const MobileChatInterface = ({
     onUpdateLeftoverItemPartial,
     onDeleteLeftoverItem,
   });
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -325,12 +325,12 @@ export const MobileChatInterface = ({
         <div className="flex justify-between items-center px-4 py-3">
           {/* Empty left side for spacing */}
           <div className="w-9"></div>
-          
+
           {/* Center - Mise title with dropdown */}
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded-lg transition-colors"
               >
                 <span className="text-xl font-medium text-foreground">Mise</span>
@@ -339,11 +339,11 @@ export const MobileChatInterface = ({
                 }} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="center" 
+            <DropdownMenuContent
+              align="center"
               className="w-52 mt-2 bg-background/95 backdrop-blur-sm border border-border/20 rounded-xl shadow-lg"
             >
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => {
                   setIsShoppingListOpen(true);
                   setIsDropdownOpen(false);
@@ -353,7 +353,7 @@ export const MobileChatInterface = ({
                 <ShoppingCart className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Shopping</span>
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => {
                   navigate('/inventory');
                   setIsDropdownOpen(false);
@@ -363,7 +363,7 @@ export const MobileChatInterface = ({
                 <Package className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Inventory</span>
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => {
                   setIsLeftoversOpen(true);
                   setIsDropdownOpen(false);
@@ -373,7 +373,7 @@ export const MobileChatInterface = ({
                 <Utensils className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Leftovers</span>
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleLogout}
                 className="flex items-center gap-3 p-4 hover:bg-red-50/50 rounded-lg m-1 cursor-pointer transition-colors"
               >
@@ -384,8 +384,8 @@ export const MobileChatInterface = ({
           </DropdownMenu>
 
           {/* Right - Menu button */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="h-9 w-9 hover:bg-muted/50 rounded-lg transition-colors"
             onClick={toggleSidebar} // Add onClick handler to open sidebar
@@ -416,15 +416,14 @@ export const MobileChatInterface = ({
           onFeedback={handleFeedback}
         />
       </div>
-      
+
       {/* Mobile Sidebar Overlay */}
-      <div 
+      <div
         id="mobile-thought-process-sidebar"
         role="complementary"
         aria-label="Thought process sidebar"
-        className={`lg:hidden fixed inset-y-0 right-0 z-sidebar mobile-sidebar-width bg-background border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
-          isRightPanelOpen ? 'translate-x-0' : 'translate-x-full'
-        }`} 
+        className={`lg:hidden fixed inset-y-0 right-0 z-sidebar mobile-sidebar-width bg-background border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isRightPanelOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
         style={{ top: '80px' }}
       >
         {/* Mobile Sidebar Header */}
@@ -442,7 +441,7 @@ export const MobileChatInterface = ({
             </Button>
           </div>
         </div>
-        
+
         {/* Mobile Sidebar Content */}
         <div className="flex-1 min-h-0 p-4 sidebar-scroll">
           <ThoughtProcess steps={thoughtSteps} />
@@ -451,7 +450,7 @@ export const MobileChatInterface = ({
 
       {/* Mobile Backdrop */}
       {isRightPanelOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/30 z-backdrop transition-opacity duration-300 animate-fade-in"
           style={{ top: '80px' }}
           onClick={toggleSidebar}

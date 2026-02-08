@@ -141,12 +141,18 @@ const saveCachedSearchResults = async (productQuery: string, searchResults: Amaz
 
   const { error } = await supabase
     .from('amazon_search_cache')
-    .upsert({
-      user_id: user.user.id,
-      product_query: productQuery.toLowerCase(),
-      country: country,
-      search_results: searchResults as unknown as any // Cast to satisfy Supabase Json type
-    });
+    .upsert(
+      {
+        user_id: user.user.id,
+        product_query: productQuery.toLowerCase(),
+        country: country,
+        search_results: searchResults as unknown as any, // Cast to satisfy Supabase Json type
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id,product_query,country',
+      }
+    );
 
   if (error) {
     console.error('Error saving cache:', error);
